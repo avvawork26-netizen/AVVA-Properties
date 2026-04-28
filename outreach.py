@@ -91,13 +91,20 @@ def _generate_email(source: str, owner_name: str, address: str, county: str) -> 
 # Send helpers
 # ---------------------------------------------------------------------------
 
+def _sms_enabled() -> bool:
+    return bool(
+        os.getenv("TWILIO_ACCOUNT_SID")
+        and os.getenv("TWILIO_AUTH_TOKEN")
+        and os.getenv("TWILIO_FROM_NUMBER")
+    )
+
+
 def _send_sms(to_number: str, body: str) -> tuple[str, str]:
     """Returns (status, twilio_sid)."""
     client = TwilioClient(
         os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN")
     )
     full_body = f"{body}\nReply STOP to opt out"
-    # Trim to 160 chars total
     if len(full_body) > 160:
         trim = 160 - len("\nReply STOP to opt out")
         full_body = body[:trim] + "\nReply STOP to opt out"
@@ -228,6 +235,9 @@ def _process_lead(conn: sqlite3.Connection, lead: dict) -> None:
 
             try:
                 if channel == "sms":
+                    if not _sms_enabled():
+                        logger.info("SMS not configured — skipping SMS day %d for lead %d", day, lead_id)
+                        continue
                     if not phone:
                         logger.info("Lead %d — no phone, skipping SMS day %d", lead_id, day)
                         continue
