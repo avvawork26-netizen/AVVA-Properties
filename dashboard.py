@@ -26,6 +26,10 @@ logger = logging.getLogger("dashboard")
 DB_PATH = "leads.db"
 app = Flask(__name__)
 
+# Auto-initialize DB so dashboard works even if db_init.py was never run
+import db_init as _db_init
+_db_init.init_db(DB_PATH)
+
 # ---------------------------------------------------------------------------
 # Base layout
 # ---------------------------------------------------------------------------
@@ -169,7 +173,8 @@ def _hot_leads_data() -> list:
            FROM leads l
            LEFT JOIN deal_analysis da ON da.lead_id = l.id
            WHERE l.status = 'hot'
-           ORDER BY da.deal_grade NULLS LAST, l.created_at DESC"""
+           ORDER BY CASE WHEN da.deal_grade IS NULL THEN 1 ELSE 0 END,
+                    da.deal_grade, l.created_at DESC"""
     ).fetchall()
     conn.close()
     return rows
